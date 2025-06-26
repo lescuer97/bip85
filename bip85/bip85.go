@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/tyler-smith/go-bip32"
 	"github.com/tyler-smith/go-bip39"
@@ -145,12 +144,19 @@ func (b *Bip85) DeriveToXpriv(index uint32) (*bip32.Key, error) {
 
 // CountWords counts the number of words in a mnemonic phrase,
 // handling leading/trailing whitespace and multiple spaces between words.
+// This implementation is optimized to avoid memory allocations.
 func CountWords(mnemonic string) uint {
-	// Trim leading and trailing whitespace first.
-	trimmed := strings.TrimSpace(mnemonic)
-	if trimmed == "" {
-		return 0
+	var count uint
+	inWord := false
+	for _, char := range mnemonic {
+		if char == ' ' || char == '\n' || char == '\r' || char == '\t' {
+			inWord = false
+		} else {
+			if !inWord {
+				count++
+				inWord = true
+			}
+		}
 	}
-	// Fields splits the string by one or more consecutive white space characters.
-	return uint(len(strings.Fields(trimmed)))
+	return count
 }
