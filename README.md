@@ -1,6 +1,6 @@
 # Go-BIP85
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/leowolf/bip85.svg)](https://pkg.go.dev/github.com/leowolf/bip85)
+[![Go Reference](https://pkg.go.dev/badge/github.com/leowolf/bip85.svg)](https://pkg.go.dev/github.com/lescuer97/bip85)
 
 This is a Go library for deriving BIP-39 mnemonic seeds from a BIP-32 master root key, based on the [BIP-85 specification](https://github.com/bitcoin/bips/blob/master/bip-0085.mediawiki).
 
@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/leowolf/bip85/v2"
+	"github.com/lescuer97/bip85"
 )
 
 func main() {
