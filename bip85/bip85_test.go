@@ -2,6 +2,7 @@
 package bip85
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -45,5 +46,19 @@ func TestBIP85_CorrectMasterKey(t *testing.T) {
 		if mnemonic != tc.expectedMnemonic {
 			t.Errorf("expected mnemonic %q, but got %q", tc.expectedMnemonic, mnemonic)
 		}
+	}
+}
+
+func TestNonEnglishMnemonic(t *testing.T) {
+	// A valid Spanish mnemonic
+	spanishMnemonic := "taza sitio punto rostro esfera oeste garza primo azar paella escolta exagerar"
+	_, err := NewFromMnemonic(spanishMnemonic, "")
+	if err == nil {
+		t.Fatal("expected an error for non-English mnemonic, but got nil")
+	}
+
+	expectedError := "mnemonic is not valid or not in English"
+	if !strings.Contains(err.Error(), expectedError) {
+		t.Errorf("expected error message to contain %q, but got %q", expectedError, err.Error())
 	}
 }
