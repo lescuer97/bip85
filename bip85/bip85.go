@@ -11,14 +11,14 @@ import (
 	"github.com/tyler-smith/go-bip39"
 )
 
-// BIP85 wraps a BIP32 master key.
-type BIP85 struct {
+// Bip85 wraps a BIP32 master key for BIP85 derivations.
+type Bip85 struct {
 	masterKey *bip32.Key
 }
 
-// NewFromMnemonic creates a new BIP85 instance from a BIP39 mnemonic.
+// NewBip85FromMnemonic creates a new Bip85 instance from a BIP39 mnemonic.
 // This implementation only supports the English wordlist.
-func NewFromMnemonic(mnemonic, passphrase string) (*BIP85, error) {
+func NewBip85FromMnemonic(mnemonic, passphrase string) (*Bip85, error) {
 	if !bip39.IsMnemonicValid(mnemonic) {
 		return nil, errors.New("mnemonic is not valid or not in English")
 	}
@@ -27,25 +27,32 @@ func NewFromMnemonic(mnemonic, passphrase string) (*BIP85, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &BIP85{masterKey: masterKey}, nil
+	return &Bip85{masterKey: masterKey}, nil
 }
 
-// FromXPRV allows direct import of an existing BIP-32 root key.
-func FromXPRV(xprv string) (*BIP85, error) {
+// NewBip85FromXPRV allows direct import of an existing BIP-32 root key.
+func NewBip85FromXPRV(xprv string) (*Bip85, error) {
 	masterKey, err := bip32.B58Deserialize(xprv)
 	if err != nil {
 		return nil, err
 	}
-	return &BIP85{masterKey: masterKey}, nil
+	return &Bip85{masterKey: masterKey}, nil
 }
 
 // DeriveMnemonic derives a new BIP39 mnemonic using the BIP85 algorithm.
-func (b *BIP85) DeriveMnemonic(wordCount int, index uint32) (string, error) {
-	path := []uint32{83696968, 39, 0, uint32(wordCount), index}
+func (b *Bip85) DeriveMnemonic(wordCount int, index uint32) (string, error) {
+	path := []uint32{
+		bip32.FirstHardenedChild + 83696968,
+		bip32.FirstHardenedChild + 39,
+		bip32.FirstHardenedChild + 0,
+		bip32.FirstHardenedChild + uint32(wordCount),
+		bip32.FirstHardenedChild + index,
+	}
+
 	key := b.masterKey
 	for _, p := range path {
 		var err error
-		key, err = key.NewChildKey(p + bip32.FirstHardenedChild)
+		key, err = key.NewChildKey(p)
 		if err != nil {
 			return "", fmt.Errorf("failed to derive child key: %w", err)
 		}
