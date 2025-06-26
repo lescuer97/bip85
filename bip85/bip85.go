@@ -1,15 +1,29 @@
-
 package bip85
 
 import (
 	"crypto/hmac"
 	"crypto/sha512"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/tyler-smith/go-bip32"
 	"github.com/tyler-smith/go-bip39"
 )
+
+var (
+	PrivateWalletVersion, _ = hex.DecodeString("0488ADE4")
+)
+
+type DerivationType uint
+
+const Mnemonic = 39
+const Xprv = 32
+
+type MnemonicLanguage uint
+
+const English = 0
 
 // Bip85 wraps a BIP32 master key for BIP85 derivations.
 type Bip85 struct {
@@ -23,10 +37,12 @@ func NewBip85FromMnemonic(mnemonic, passphrase string) (*Bip85, error) {
 		return nil, errors.New("mnemonic is not valid or not in English")
 	}
 	seed := bip39.NewSeed(mnemonic, passphrase)
+
 	masterKey, err := bip32.NewMasterKey(seed)
 	if err != nil {
 		return nil, err
 	}
+
 	return &Bip85{masterKey: masterKey}, nil
 }
 
@@ -39,12 +55,15 @@ func NewBip85FromXPRV(xprv string) (*Bip85, error) {
 	return &Bip85{masterKey: masterKey}, nil
 }
 
-// DeriveMnemonic derives a new BIP39 mnemonic using the BIP85 algorithm.
-func (b *Bip85) DeriveMnemonic(wordCount int, index uint32) (string, error) {
+func (b *Bip85) DeriveToMnemonic(language MnemonicLanguage, wordCount uint32, index uint32) (string, error) {
+	if language != English {
+		return "", fmt.Errorf("language is not correct")
+	}
+
 	path := []uint32{
 		bip32.FirstHardenedChild + 83696968,
-		bip32.FirstHardenedChild + 39,
-		bip32.FirstHardenedChild + 0,
+		bip32.FirstHardenedChild + Mnemonic,
+		bip32.FirstHardenedChild + uint32(language),
 		bip32.FirstHardenedChild + uint32(wordCount),
 		bip32.FirstHardenedChild + index,
 	}
@@ -62,10 +81,8 @@ func (b *Bip85) DeriveMnemonic(wordCount int, index uint32) (string, error) {
 		return "", errors.New("derived key is not a private key")
 	}
 
-	privateKeyBytes := key.Key[1:]
-
 	mac := hmac.New(sha512.New, []byte("bip-entropy-from-k"))
-	mac.Write(privateKeyBytes)
+	mac.Write(key.Key)
 	hash := mac.Sum(nil)
 
 	var entropyLength int
@@ -88,4 +105,52 @@ func (b *Bip85) DeriveMnemonic(wordCount int, index uint32) (string, error) {
 	}
 
 	return mnemonic, nil
+}
+
+func (b *Bip85) DeriveToXpriv(index uint32) (*bip32.Key, error) {
+	path := []uint32{
+		bip32.FirstHardenedChild + 83696968,
+		bip32.FirstHardenedChild + Xprv,
+		bip32.FirstHardenedChild + index,
+	}
+
+	key := b.masterKey
+	for _, p := range path {
+		var err error
+		key, err = key.NewChildKey(p)
+		if err != nil {
+			return nil, fmt.Errorf("failed to derive child key: %w", err)
+		}
+	}
+
+	if !key.IsPrivate {
+		return nil, errors.New("derived key is not a private key")
+	}
+
+	mac := hmac.New(sha512.New, []byte("bip-entropy-from-k"))
+	mac.Write(key.Key)
+	hash := mac.Sum(nil)
+	chainCode := hash[:32]
+	newKey := bip32.Key{
+		Version:     PrivateWalletVersion,
+		ChainCode:   chainCode,
+		Key:         hash[32:64],
+		IsPrivate:   true,
+		Depth:       0x0,
+		ChildNumber: []byte{0x00, 0x00, 0x00, 0x00},
+		FingerPrint: []byte{0x00, 0x00, 0x00, 0x00},
+	}
+	return &newKey, nil
+}
+
+// CountWords counts the number of words in a mnemonic phrase,
+// handling leading/trailing whitespace and multiple spaces between words.
+func CountWords(mnemonic string) uint {
+	// Trim leading and trailing whitespace first.
+	trimmed := strings.TrimSpace(mnemonic)
+	if trimmed == "" {
+		return 0
+	}
+	// Fields splits the string by one or more consecutive white space characters.
+	return uint(len(strings.Fields(trimmed)))
 }

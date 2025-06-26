@@ -1,4 +1,3 @@
-
 package bip85
 
 import (
@@ -20,9 +19,33 @@ func TestNonEnglishMnemonic(t *testing.T) {
 	}
 }
 
-func TestFromXPRV(t *testing.T) {
+func TestFromXPRVToXPRV(t *testing.T) {
 	// This is the correct xprv for the "all all all..." mnemonic.
-	xprv := "xprv9s21ZrQH143K2rbkN6QpF6ZB3QQcyJA6aYbagMp6i8y831VVvpfcWNWqg5DM6GxSn66UDQUrgRgQEsLPZJC3APkPsQjxB7ndNMgj5R5HLmo"
+	xprv := "xprv9s21ZrQH143K2LBWUUQRFXhucrQqBpKdRRxNVq2zBqsx8HVqFk2uYo8kmbaLLHRdqtQpUm98uKfu3vca1LqdGhUtyoFnCNkfmXRyPXLjbKb"
+
+	b, err := NewBip85FromXPRV(xprv)
+	if err != nil {
+		t.Fatalf("failed to create Bip85 from xprv: %v", err)
+	}
+
+	xpriv, err := b.DeriveToXpriv(0)
+	if err != nil {
+		t.Fatalf("failed to derive mnemonic: %v", err)
+	}
+	if xpriv == nil {
+		t.Fatalf("xpriv is nil")
+	}
+
+	expectedXpriv := "xprv9s21ZrQH143K2srSbCSg4m4kLvPMzcWydgmKEnMmoZUurYuBuYG46c6P71UGXMzmriLzCCBvKQWBUv3vPB3m1SATMhp3uEjXHJ42jFg7myX"
+
+	if expectedXpriv != xpriv.B58Serialize() {
+		t.Errorf("expected xpriv is not correct. %v", xpriv.B58Serialize())
+	}
+
+}
+func TestFromXPRVToMnemonic(t *testing.T) {
+	// This is the correct xprv for the "all all all..." mnemonic.
+	xprv := "xprv9s21ZrQH143K2LBWUUQRFXhucrQqBpKdRRxNVq2zBqsx8HVqFk2uYo8kmbaLLHRdqtQpUm98uKfu3vca1LqdGhUtyoFnCNkfmXRyPXLjbKb"
 
 	b, err := NewBip85FromXPRV(xprv)
 	if err != nil {
@@ -31,14 +54,51 @@ func TestFromXPRV(t *testing.T) {
 
 	wordCount := 12
 	index := uint32(0)
-	expectedMnemonic := "dragon great exhaust dice owner element tank canal cliff brand vibrant twelve"
 
-	mnemonic, err := b.DeriveMnemonic(wordCount, index)
-	if err != nil {
-		t.Fatalf("failed to derive mnemonic: %v", err)
+	tests := []struct {
+		name             string
+		expectedMnemonic string
+		wordCount        uint
+	}{
+		{"12 words", "girl mad pet galaxy egg matter matrix prison refuse sense ordinary nose", 12},
+		{"18 words", "near account window bike charge season chef number sketch tomorrow excuse sniff circle vital hockey outdoor supply token", 18},
+		{"24 words", "puppy ocean match cereal symbol another shed magic wrap hammer bulb intact gadget divorce twin tonight reason outdoor destroy simple truth cigar social volcano", 24},
 	}
 
-	if mnemonic != expectedMnemonic {
-		t.Errorf("expected mnemonic %q, but got %q", expectedMnemonic, mnemonic)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mnemonic, err := b.DeriveToMnemonic(English, uint32(tc.wordCount), index)
+			if err != nil {
+				t.Fatalf("failed to derive mnemonic: %v", err)
+			}
+			if mnemonic != tc.expectedMnemonic {
+				t.Errorf("expected %s words, but got %d", tc.expectedMnemonic, wordCount)
+			}
+		})
+	}
+}
+
+func TestCountWords(t *testing.T) {
+	tests := []struct {
+		name     string
+		mnemonic string
+		expected uint
+	}{
+		{"12 words", "girl mad pet galaxy egg matter matrix prison refuse sense ordinary nose", 12},
+		{"12 words with extra space", "girl  mad pet galaxy egg matter matrix prison refuse sense ordinary nose", 12},
+		{"12 words with leading space", " girl mad pet galaxy egg matter matrix prison refuse sense ordinary nose", 12},
+		{"12 words with trailing space", "girl mad pet galaxy egg matter matrix prison refuse sense ordinary nose ", 12},
+		{"24 words", "puppy ocean match cereal symbol another shed magic wrap hammer bulb intact gadget divorce twin tonight reason outdoor destroy simple truth cigar social volcano", 24},
+		{"Empty string", "", 0},
+		{"Just whitespace", "   ", 0},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			count := CountWords(tc.mnemonic)
+			if count != tc.expected {
+				t.Errorf("expected %d words, but got %d", tc.expected, count)
+			}
+		})
 	}
 }
