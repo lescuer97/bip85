@@ -17,17 +17,21 @@ var (
 
 type DerivationType uint
 
-const Mnemonic = 39
-const Xprv = 32
+const Mnemonic DerivationType = 39
+const Xprv DerivationType = 32
 
 type MnemonicLanguage uint
 
-const English = 0
+const English MnemonicLanguage = 0
 
 // Bip85 wraps a BIP32 master key for BIP85 derivations.
 type Bip85 struct {
 	masterKey *bip32.Key
 }
+
+var (
+	ErrBip32IsNil = errors.New("bip32 key is nil")
+)
 
 // NewBip85FromMnemonic creates a new Bip85 instance from a BIP39 mnemonic.
 // This implementation only supports the English wordlist.
@@ -45,13 +49,21 @@ func NewBip85FromMnemonic(mnemonic, passphrase string) (*Bip85, error) {
 	return &Bip85{masterKey: masterKey}, nil
 }
 
-// NewBip85FromXPRV allows direct import of an existing BIP-32 root key.
-func NewBip85FromXPRV(xprv string) (*Bip85, error) {
+// NewBip85FromXPRVString allows direct import of an existing BIP-32 xpriv string.
+func NewBip85FromXPRVString(xprv string) (*Bip85, error) {
 	masterKey, err := bip32.B58Deserialize(xprv)
 	if err != nil {
 		return nil, err
 	}
 	return &Bip85{masterKey: masterKey}, nil
+}
+
+// NewBip85FromBip32Key allows direct import of an existing BIP-32 key
+func NewBip85FromBip32Key(bip32Key *bip32.Key) (*Bip85, error) {
+	if bip32Key == nil {
+		return nil, ErrBip32IsNil
+	}
+	return &Bip85{masterKey: bip32Key}, nil
 }
 
 func (b *Bip85) DeriveToMnemonic(language MnemonicLanguage, wordCount uint32, index uint32) (string, error) {
@@ -61,7 +73,7 @@ func (b *Bip85) DeriveToMnemonic(language MnemonicLanguage, wordCount uint32, in
 
 	path := []uint32{
 		bip32.FirstHardenedChild + 83696968,
-		bip32.FirstHardenedChild + Mnemonic,
+		bip32.FirstHardenedChild + uint32(Mnemonic),
 		bip32.FirstHardenedChild + uint32(language),
 		bip32.FirstHardenedChild + uint32(wordCount),
 		bip32.FirstHardenedChild + index,
@@ -109,7 +121,7 @@ func (b *Bip85) DeriveToMnemonic(language MnemonicLanguage, wordCount uint32, in
 func (b *Bip85) DeriveToXpriv(index uint32) (*bip32.Key, error) {
 	path := []uint32{
 		bip32.FirstHardenedChild + 83696968,
-		bip32.FirstHardenedChild + Xprv,
+		bip32.FirstHardenedChild + uint32(Xprv),
 		bip32.FirstHardenedChild + index,
 	}
 

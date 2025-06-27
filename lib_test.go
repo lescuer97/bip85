@@ -3,6 +3,8 @@ package bip85
 import (
 	"strings"
 	"testing"
+
+	"github.com/tyler-smith/go-bip32"
 )
 
 func TestNonEnglishMnemonic(t *testing.T) {
@@ -19,11 +21,11 @@ func TestNonEnglishMnemonic(t *testing.T) {
 	}
 }
 
-func TestFromXPRVToXPRV(t *testing.T) {
+func TestFromXPRVStringToXPRV(t *testing.T) {
 	// This is the correct xprv for the "all all all..." mnemonic.
 	xprv := "xprv9s21ZrQH143K2LBWUUQRFXhucrQqBpKdRRxNVq2zBqsx8HVqFk2uYo8kmbaLLHRdqtQpUm98uKfu3vca1LqdGhUtyoFnCNkfmXRyPXLjbKb"
 
-	b, err := NewBip85FromXPRV(xprv)
+	b, err := NewBip85FromXPRVString(xprv)
 	if err != nil {
 		t.Fatalf("failed to create Bip85 from xprv: %v", err)
 	}
@@ -41,13 +43,81 @@ func TestFromXPRVToXPRV(t *testing.T) {
 	if expectedXpriv != xpriv.B58Serialize() {
 		t.Errorf("expected xpriv is not correct. %v", xpriv.B58Serialize())
 	}
-
 }
+
+func TestFrombip32ToXPRV(t *testing.T) {
+	// This is the correct xprv for the "all all all..." mnemonic.
+	xprv := "xprv9s21ZrQH143K2LBWUUQRFXhucrQqBpKdRRxNVq2zBqsx8HVqFk2uYo8kmbaLLHRdqtQpUm98uKfu3vca1LqdGhUtyoFnCNkfmXRyPXLjbKb"
+
+	masterKey, err := bip32.B58Deserialize(xprv)
+	if err != nil {
+		t.Fatalf("could not parse xrpv. %v", err)
+	}
+
+	b, err := NewBip85FromBip32Key(masterKey)
+	if err != nil {
+		t.Fatalf("failed to create Bip85 from xprv: %v", err)
+	}
+
+	xpriv, err := b.DeriveToXpriv(0)
+	if err != nil {
+		t.Fatalf("failed to derive mnemonic: %v", err)
+	}
+	if xpriv == nil {
+		t.Fatalf("xpriv is nil")
+	}
+
+	expectedXpriv := "xprv9s21ZrQH143K2srSbCSg4m4kLvPMzcWydgmKEnMmoZUurYuBuYG46c6P71UGXMzmriLzCCBvKQWBUv3vPB3m1SATMhp3uEjXHJ42jFg7myX"
+
+	if expectedXpriv != xpriv.B58Serialize() {
+		t.Errorf("expected xpriv is not correct. %v", xpriv.B58Serialize())
+	}
+}
+func TestFrombip32ToMnemonic(t *testing.T) {
+	// This is the correct xprv for the "all all all..." mnemonic.
+	xprv := "xprv9s21ZrQH143K2LBWUUQRFXhucrQqBpKdRRxNVq2zBqsx8HVqFk2uYo8kmbaLLHRdqtQpUm98uKfu3vca1LqdGhUtyoFnCNkfmXRyPXLjbKb"
+
+	masterKey, err := bip32.B58Deserialize(xprv)
+	if err != nil {
+		t.Fatalf("could not parse xrpv. %v", err)
+	}
+
+	b, err := NewBip85FromBip32Key(masterKey)
+	if err != nil {
+		t.Fatalf("failed to create Bip85 from xprv: %v", err)
+	}
+
+	wordCount := 12
+	index := uint32(0)
+
+	tests := []struct {
+		name             string
+		expectedMnemonic string
+		wordCount        uint
+	}{
+		{"12 words", "girl mad pet galaxy egg matter matrix prison refuse sense ordinary nose", 12},
+		{"18 words", "near account window bike charge season chef number sketch tomorrow excuse sniff circle vital hockey outdoor supply token", 18},
+		{"24 words", "puppy ocean match cereal symbol another shed magic wrap hammer bulb intact gadget divorce twin tonight reason outdoor destroy simple truth cigar social volcano", 24},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mnemonic, err := b.DeriveToMnemonic(English, uint32(tc.wordCount), index)
+			if err != nil {
+				t.Fatalf("failed to derive mnemonic: %v", err)
+			}
+			if mnemonic != tc.expectedMnemonic {
+				t.Errorf("expected %s words, but got %d", tc.expectedMnemonic, wordCount)
+			}
+		})
+	}
+}
+
 func TestFromXPRVToMnemonic(t *testing.T) {
 	// This is the correct xprv for the "all all all..." mnemonic.
 	xprv := "xprv9s21ZrQH143K2LBWUUQRFXhucrQqBpKdRRxNVq2zBqsx8HVqFk2uYo8kmbaLLHRdqtQpUm98uKfu3vca1LqdGhUtyoFnCNkfmXRyPXLjbKb"
 
-	b, err := NewBip85FromXPRV(xprv)
+	b, err := NewBip85FromXPRVString(xprv)
 	if err != nil {
 		t.Fatalf("failed to create Bip85 from xprv: %v", err)
 	}
